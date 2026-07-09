@@ -1,131 +1,218 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import AboutSegment from '@/components/segments/AboutSegments';
-import RoadmapSegment from '@/components/segments/RoadmapSegments';
-import TeamSegment from '@/components/segments/TeamSegments';
-// Sesuai dengan nama file dashboard yang Anda gunakan (DashboardSegments atau DashboardSegment)
-import MainDashboardView from '@/components/segments/DashboardSegments'; 
+import React, { useState, useEffect } from 'react';
+import { Activity, Cpu, Zap, Layers, Users, RefreshCw, Calendar } from 'lucide-react';
+import RoadmapSegments from '@/components/segments/RoadmapSegments';
+import TeamSegments from '@/components/segments/TeamSegments';
 
-export default function Home() {
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  // State tambahan jika diperlukan oleh komponen dashboard untuk melacak info yang dipilih
-  const [selectedInfo, setSelectedInfo] = useState<string | null>(null);
+interface TelemetryData {
+  voltage: number;
+  current: number;
+  power: number;
+  created_at: string;
+}
 
-  // Efek audio interaktif untuk feedback klik user
-  const playClickSound = () => {
-    if (typeof window !== 'undefined') {
-      const audio = new Audio('/sounds/click.mp3');
-      audio.volume = 0.2;
-      audio.play().catch(() => {});
+export default function MPPTDashboard() {
+  const [currentSegment, setCurrentSegment] = useState<'dashboard' | 'roadmap' | 'team'>('dashboard');
+  const [data, setData] = useState<TelemetryData>({
+    voltage: 0,
+    current: 0,
+    power: 0,
+    created_at: new Date().toISOString()
+  });
+  const [history, setHistory] = useState<TelemetryData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchTelemetry = async () => {
+    try {
+      const res = await fetch('/api/telemetry');
+      if (res.ok) {
+        const result = await res.json();
+        if (result && result.length > 0) {
+          const latest = result[0];
+          setData(latest);
+          setHistory(result.slice().reverse());
+        }
+      }
+    } catch (error) {
+      console.error("Gagal mengambil data telemetri:", error);
     }
   };
 
-  const playPopSound = () => {
-    if (typeof window !== 'undefined') {
-      const audio = new Audio('/sounds/pop.mp3');
-      audio.volume = 0.2;
-      audio.play().catch(() => {});
-    }
-  };
-
-  // Jalur render komponen berbasis Tab yang solid
-  const renderSegment = () => {
-    switch (activeTab) {
-      case 'about':
-        return <AboutSegment />;
-      case 'roadmap':
-        return <RoadmapSegment playClickSound={playClickSound} playPopSound={playPopSound} />;
-      case 'team':
-        return <TeamSegment playClickSound={playClickSound} playPopSound={playPopSound} />;
-      case 'dashboard':
-      default:
-        // FIX: Mengalirkan properti playClickSound, playPopSound, dan setSelectedInfo yang dibutuhkan dashboard
-        return (
-          <MainDashboardView 
-            playClickSound={playClickSound} 
-            playPopSound={playPopSound} 
-            setSelectedInfo={setSelectedInfo} 
-          />
-        );
-    }
-  };
+  useEffect(() => {
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 flex flex-col justify-between font-sans selection:bg-emerald-500 selection:text-black">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans p-6 selection:bg-[#600006] selection:text-white">
       
-      {/* AREA KONTEN UTAMA (TOP & MIDDLE) */}
-      <div className="w-full max-w-7xl mx-auto flex-1 pb-24">
-        {/* HEADER STATUS BAR */}
-        <div className="flex justify-between items-center border-b border-zinc-900 pb-4 mb-6">
-          <div>
-            <span className="text-[10px] font-mono text-emerald-400 block tracking-wider">// CORE STATION ONLINE</span>
-            <h1 className="text-lg font-black tracking-tight text-white uppercase">P&O MPPT MONITORING SYSTEMS</h1>
+      {/* HEADER UTAMA */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-zinc-800 pb-6 mb-8 gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-[#600006] font-semibold tracking-widest text-xs uppercase mb-1">
+            <Activity size={14} /> Sistem Pemantauan IoT
           </div>
-          <div className="text-right hidden sm:block">
-            <span className="text-[9px] font-mono text-zinc-500 block">HARDWARE_NODE</span>
-            <span className="text-xs font-mono text-zinc-300 font-bold">ESP32_C3 // CLIENT_CONNECTED</span>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight uppercase">
+            Hybrid MPPT Tracker Monitoring
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Optimasi Pengisian Daya Baterai Berbasis Algoritma P&O - ESP32 C3
+          </p>
         </div>
-
-        {/* RENDERING FITUR AKTIF */}
-        <div className="transition-all duration-200">
-          {renderSegment()}
+        
+        {/* NAVIGASI MENU DASHBOARD */}
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <button 
+            onClick={() => setCurrentSegment('dashboard')}
+            className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border transition-all ${
+              currentSegment === 'dashboard' ? 'bg-[#600006] border-[#600006] text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+            style={{ borderRadius: '0px' }}
+          >
+            Dashboard
+          </button>
+          <button 
+            onClick={() => setCurrentSegment('roadmap')}
+            className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border transition-all ${
+              currentSegment === 'roadmap' ? 'bg-[#600006] border-[#600006] text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+            style={{ borderRadius: '0px' }}
+          >
+            Roadmap
+          </button>
+          <button 
+            onClick={() => setCurrentSegment('team')}
+            className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border transition-all ${
+              currentSegment === 'team' ? 'bg-[#600006] border-[#600006] text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+            style={{ borderRadius: '0px' }}
+          >
+            Team
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* USER EXPERIENCE BASE: BOTTOM NAVIGATION BAR */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-900 p-4 z-40">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
-          
-          {/* GRUP TOMBOL NAVIGASI UTAMA */}
-          <div className="flex bg-zinc-900/60 p-1 border border-zinc-850 w-full sm:w-auto" style={{ borderRadius: '0px' }}>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('dashboard'); }}
-              className={`flex-1 sm:flex-none px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-150 ${
-                activeTab === 'dashboard' ? 'bg-zinc-100 text-black' : 'bg-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-              style={{ borderRadius: '0px' }}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('about'); }}
-              className={`flex-1 sm:flex-none px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-150 ${
-                activeTab === 'about' ? 'bg-zinc-100 text-black' : 'bg-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-              style={{ borderRadius: '0px' }}
-            >
-              Info
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('roadmap'); }}
-              className={`flex-1 sm:flex-none px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-150 ${
-                activeTab === 'roadmap' ? 'bg-zinc-100 text-black' : 'bg-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-              style={{ borderRadius: '0px' }}
-            >
-              Roadmap
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('team'); }}
-              className={`flex-1 sm:flex-none px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-150 ${
-                activeTab === 'team' ? 'bg-zinc-100 text-black' : 'bg-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-              style={{ borderRadius: '0px' }}
-            >
-              Team
-            </button>
-          </div>
+      {/* KONDISIONAL RENDER SEGMEN VIEW */}
+      {currentSegment === 'dashboard' && (
+        <div className="space-y-8">
+          {/* GRID KARTU INDIKATOR */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="bg-[#111111] border border-zinc-800 p-6 flex flex-col justify-between" style={{ borderRadius: '0px' }}>
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tegangan Panel (PV)</p>
+                <Zap size={18} className="text-amber-500" />
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-4xl font-black text-white tracking-tight">{data.voltage.toFixed(2)}</span>
+                <span className="text-lg font-bold text-zinc-500">V</span>
+              </div>
+            </div>
 
-          {/* TEKS METADATA DEKORATIF DI BOTTOM BAR */}
-          <div className="text-[10px] font-mono text-zinc-600 hidden md:block uppercase tracking-widest">
-            SYSTEM_VER: 0.1.0_BETA // [PLTS x PBO]
-          </div>
+            <div className="bg-[#111111] border border-zinc-800 p-6 flex flex-col justify-between" style={{ borderRadius: '0px' }}>
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Arus Pengisian</p>
+                <Cpu size={18} className="text-blue-500" />
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-4xl font-black text-white tracking-tight">{data.current.toFixed(2)}</span>
+                <span className="text-lg font-bold text-zinc-500">A</span>
+              </div>
+            </div>
 
+            <div className="bg-[#111111] border border-zinc-800 p-6 flex flex-col justify-between bg-gradient-to-br from-[#111111] to-[#1a0507]" style={{ borderRadius: '0px' }}>
+              <div className="flex justify-between items-start">
+                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Daya Keluaran (Power)</p>
+                <Activity size={18} className="text-[#600006]" />
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-4xl font-black text-white tracking-tight">{data.power.toFixed(2)}</span>
+                <span className="text-lg font-bold text-zinc-400">W</span>
+              </div>
+            </div>
+          </section>
+
+          {/* GRAFIK REAL-TIME */}
+          <section className="bg-[#111111] border border-zinc-800 p-6" style={{ borderRadius: '0px' }}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Layers size={16} className="text-[#600006]" /> Kurva Perubahan Daya Efektif
+              </h2>
+              <button 
+                onClick={() => { setLoading(true); fetchTelemetry().then(() => setLoading(false)); }}
+                className="flex items-center gap-1.5 bg-zinc-950 hover:bg-zinc-900 text-zinc-400 border border-zinc-850 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider"
+                style={{ borderRadius: '0px' }}
+              >
+                <RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Sync
+              </button>
+            </div>
+            <div className="h-48 w-full bg-zinc-950 border border-zinc-900 flex items-end p-2 gap-1 overflow-hidden" style={{ borderRadius: '0px' }}>
+              {history.map((item, idx) => {
+                const maxPower = 100;
+                const heightPercentage = Math.min((item.power / maxPower) * 100, 100);
+                return (
+                  <div 
+                    key={idx} 
+                    className="bg-[#600006] opacity-80 hover:opacity-100 flex-1 transition-all duration-300 relative group"
+                    style={{ height: `${heightPercentage}%`, minWidth: '12px', borderRadius: '0px' }}
+                  >
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 bg-zinc-900 text-[9px] font-mono text-white p-1 border border-zinc-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 mb-1" style={{ borderRadius: '0px' }}>
+                      {item.power.toFixed(1)}W ({new Date(item.created_at).toLocaleTimeString()})
+                    </div>
+                  </div>
+                );
+              })}
+              {history.length === 0 && (
+                <div className="w-full h-full flex items-center justify-center text-xs text-zinc-600 uppercase tracking-widest font-mono">
+                  Menunggu Transmisi Data Simulator...
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* DOKUMENTASI FISIK */}
+          <section>
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Cpu size={16} className="text-[#600006]" /> Dokumentasi Teknis Hardware & Prototipe
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
+                <h3 className="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">Skema Sistem</h3>
+                <div className="h-44 w-full bg-zinc-900 border border-zinc-800 overflow-hidden" style={{ borderRadius: '0px' }}>
+                  <img src="/schematic.jpeg" alt="Skema Elektronik" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
+                <h3 className="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">Sistem Kontrol</h3>
+                <div className="h-44 w-full bg-zinc-900 border border-zinc-800 overflow-hidden" style={{ borderRadius: '0px' }}>
+                  <img src="/kontrol.jpeg" alt="Sistem Kontrol" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
+                <h3 className="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">Desain Casing 3D</h3>
+                <div className="h-44 w-full bg-zinc-900 border border-zinc-800 overflow-hidden" style={{ borderRadius: '0px' }}>
+                  <img src="/3d.jpeg" alt="Desain 3D" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <div className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
+                <h3 className="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">Prototipe 3D Hijau</h3>
+                <div className="h-44 w-full bg-zinc-900 border border-zinc-800 overflow-hidden" style={{ borderRadius: '0px' }}>
+                  <img src="/3dhijau.jpeg" alt="Desain 3D Hijau" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
+      )}
 
-    </main>
+      {currentSegment === 'roadmap' && <RoadmapSegments />}
+      {currentSegment === 'team' && <TeamSegments />}
+
+      {/* FOOTER ERGONOMIS */}
+      <footer className="mt-12 text-center text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
+        © 2026 MPPT Monitor Project — UNU Yogyakarta. All Rights Reserved.
+      </footer>
+    </div>
   );
 }

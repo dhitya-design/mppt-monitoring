@@ -1,18 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
-interface RoadmapSegmentsProps {
-  playClickSound: () => void;
-  playPopSound: () => void;
-}
-
-export default function RoadmapSegments({ playClickSound, playPopSound }: RoadmapSegmentsProps) {
+export default function RoadmapSegments() {
   const [activeMilestone, setActiveMilestone] = useState<string | null>(null);
 
-  // ARSITEKTUR AKAR DATA: Aset foto baru dipetakan langsung ke fase yang relevan
   const milestones = [
     {
       id: 'inisiasi',
@@ -20,7 +14,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Penugasan & Inisiasi Proyek (PLTS × PBO)',
       date: 'Fase 1: Konseptual',
       status: 'Completed',
-      description: 'Menerima penugasan integrasi sistem hibrida PLTS dan arsitektur perangkat lunak pemantauan berbasis objek. Menganalisis karakteristik non-linearitas kurva I-V panel surya akibat fluktuasi iradiasi matahari dan suhu sel oleh tim pengembang (Adhit, Rio, Aras, Amir, Fadhil).',
+      description: 'Menerima penugasan integrasi sistem hibrida PLTS dan arsitektur perangkat lunak pemantauan berbasis objek. Menganalisis karakteristik non-linearitas kurva I-V panel surya akibat fluktuasi iradiasi matahari oleh tim pengembang (Adhit, Yono, Aras, Amir, Fadhil).',
       images: [], 
       note: 'LOG_METRIC: Pemetaan awal diagram kelas (Class Diagram) struktur objek data telemetri.'
     },
@@ -40,11 +34,11 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Perancangan Mekanis & Desain 3D CAD',
       date: 'Fase 3: Desain Fisik',
       status: 'Completed',
-      description: 'Pemodelan sasis utama dan enclosure sistem kontrol menggunakan software CAD oleh Amir. Fokus pada perancangan tata letak mekanis instrumentasi fisik guna memastikan efisiensi ruang, ergonomi, dan keamanan termal sistem hibrida.',
+      description: 'Pemodelan sasis utama dan enclosure sistem kontrol menggunakan software CAD oleh Amir. Fokus pada perancangan tata letak mekanis instrumentasi fisik guna memastikan efisiensi ruang dan keamanan termal.',
       images: [
         '/3d.jpeg',
         '/3dhijau.jpeg'
-      ], // Mengunci aset visual pemodelan casing 3D yang Anda upload
+      ],
       note: 'LOG_METRIC: Sasis persegi murni dirancang presisi untuk meminimalkan overheat.'
     },
     {
@@ -53,11 +47,11 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Integrasi Hardware & Komputasi Firmware',
       date: 'Fase 4: Konstruksi',
       status: 'Completed',
-      description: 'Perangkaian fisik sirkuit elektronika instrumentasi daya dan modul switching oleh Rio dan Aras, dikombinasikan dengan flashing kode algoritma Perturb and Observe (P&O) konvensional ke mikrokontroler ESP32 C3 oleh Adhit untuk melacak titik daya maksimum (MPP).',
+      description: 'Perangkaian fisik sirkuit elektronika oleh Yono dan Aras, dikombinasikan dengan flashing kode algoritma Perturb and Observe (P&O) konvensional ke ESP32 C3 oleh Adhit untuk melacak titik daya maksimum (MPP).',
       images: [
         '/schematic.jpeg',
         '/kontrol.jpeg'
-      ], // Mengunci aset skema jalur sirkuit dan fisik kontroler yang sudah siap
+      ],
       note: 'LOG_METRIC: Enkapsulasi data telemetri dioptimalkan untuk meminimalkan osilasi di sekitar MPP.'
     },
     {
@@ -66,8 +60,8 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Monitoring & Evaluasi (Monev) Akademik',
       date: 'Fase 5: Validasi Awal',
       status: 'In Progress',
-      description: 'Presentasi dan pengujian fungsionalitas purwarupa stasiun kendali di hadapan dosen penguji oleh seluruh anggota tim. Menampilkan kestabilan transmisi data parameter elektrik menuju antarmuka monitoring dashboard berbasis web secara real-time.',
-      images: [], // Siap diisi foto tim saat pelaksanaan Monev pagi ini
+      description: 'Presentasi dan pengujian fungsionalitas purwarupa stasiun kendali di hadapan dosen penguji. Menampilkan kestabilan transmisi data parameter elektrik menuju antarmuka monitoring berbasis web.',
+      images: [], 
       note: 'LOG_METRIC: Validasi fungsionalitas current state sistem sebelum pengambilan data konstan.'
     },
     {
@@ -95,14 +89,14 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
         </span>
       </div>
 
-      {/* TIMELINE LIST STYLED CARD */}
+      {/* TIMELINE LIST */}
       <div className="space-y-3 relative">
         <div className="absolute left-[21px] top-4 bottom-4 w-[1px] bg-zinc-850 hidden sm:block" />
 
         {milestones.map((milestone) => (
           <div
             key={milestone.id}
-            onClick={() => { playPopSound(); setActiveMilestone(milestone.id); }}
+            onClick={() => setActiveMilestone(milestone.id)}
             className="cursor-pointer border border-zinc-800 bg-zinc-900/30 p-4 hover:border-zinc-500 transition-all duration-200 group flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between relative overflow-hidden"
             style={{ borderRadius: '0px' }}
           >
@@ -139,7 +133,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
         {activeMilestone && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div 
-              onClick={() => { playClickSound(); setActiveMilestone(null); }}
+              onClick={() => setActiveMilestone(null)}
               className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
             />
             {(() => {
@@ -161,7 +155,6 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
                       <p className="text-xs text-zinc-400 leading-relaxed text-justify mt-1">{current.description}</p>
                     </div>
 
-                    {/* GALERI FOTO OTOMATIS */}
                     <div>
                       <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide block mb-2">Dokumentasi Arsip Visual:</span>
                       {current.images.length > 0 ? (
@@ -194,7 +187,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
 
                   <div className="p-4 border-t border-zinc-800 bg-zinc-900/40">
                     <button
-                      onClick={() => { playClickSound(); setActiveMilestone(null); }}
+                      onClick={() => setActiveMilestone(null)}
                       className="w-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs uppercase tracking-wider py-2.5 transition-colors"
                       style={{ borderRadius: '0px' }}
                     >
