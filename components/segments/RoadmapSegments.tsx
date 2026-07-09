@@ -12,7 +12,7 @@ interface RoadmapSegmentsProps {
 export default function RoadmapSegments({ playClickSound, playPopSound }: RoadmapSegmentsProps) {
   const [activeMilestone, setActiveMilestone] = useState<string | null>(null);
 
-  // ARSITEKTUR AKAR DATA: Tinggal isi array images jika foto sudah siap di folder public/kegiatan/
+  // ARSITEKTUR AKAR DATA: Aset foto baru dipetakan langsung ke fase yang relevan
   const milestones = [
     {
       id: 'inisiasi',
@@ -20,8 +20,8 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Penugasan & Inisiasi Proyek (PLTS × PBO)',
       date: 'Fase 1: Konseptual',
       status: 'Completed',
-      description: 'Menerima penugasan integrasi sistem hibrida PLTS dan arsitektur perangkat lunak pemantauan berbasis objek. Menganalisis karakteristik non-linearitas kurva I-V panel surya akibat fluktuasi iradiasi matahari dan suhu sel.',
-      images: [], // Isi jika ada foto lembar tugas / diskusi awal (cth: ['/kegiatan/init1.jpeg'])
+      description: 'Menerima penugasan integrasi sistem hibrida PLTS dan arsitektur perangkat lunak pemantauan berbasis objek. Menganalisis karakteristik non-linearitas kurva I-V panel surya akibat fluktuasi iradiasi matahari dan suhu sel oleh tim pengembang (Adhit, Rio, Aras, Amir, Fadhil).',
+      images: [], 
       note: 'LOG_METRIC: Pemetaan awal diagram kelas (Class Diagram) struktur objek data telemetri.'
     },
     {
@@ -31,7 +31,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       date: 'Fase 2: Pengadaan',
       status: 'Completed',
       description: 'Pengadaan komponen penunjang instrumentasi: Mikrokontroler ESP32 C3, sensor parameter daya (arus/tegangan), modul switching konverter, serta konfigurasi environment Python untuk antarmuka real-time.',
-      images: [], // Isi jika ada foto komponen di meja (cth: ['/kegiatan/komponen.jpeg'])
+      images: [], 
       note: 'LOG_METRIC: Kelayakan hardware diperiksa untuk memastikan kendali duty cycle presisi.'
     },
     {
@@ -40,11 +40,11 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Perancangan Mekanis & Desain 3D CAD',
       date: 'Fase 3: Desain Fisik',
       status: 'Completed',
-      description: 'Pemodelan sasis utama dan enclosure sistem kontrol menggunakan software CAD oleh Amir. Fokus pada perancangan tata letak mekanis instrumentasi fisik guna memastikan efisiensi ruang dan keamanan termal.',
+      description: 'Pemodelan sasis utama dan enclosure sistem kontrol menggunakan software CAD oleh Amir. Fokus pada perancangan tata letak mekanis instrumentasi fisik guna memastikan efisiensi ruang, ergonomi, dan keamanan termal sistem hibrida.',
       images: [
-        '/kegiatan/design1.jpeg',
-        '/kegiatan/design2.jpeg'
-      ], // Sudah mengunci foto yang Anda miliki saat ini
+        '/3d.jpeg',
+        '/3dhijau.jpeg'
+      ], // Mengunci aset visual pemodelan casing 3D yang Anda upload
       note: 'LOG_METRIC: Sasis persegi murni dirancang presisi untuk meminimalkan overheat.'
     },
     {
@@ -53,8 +53,11 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Integrasi Hardware & Komputasi Firmware',
       date: 'Fase 4: Konstruksi',
       status: 'Completed',
-      description: 'Perangkaian fisik sirkuit elektronika oleh Yono, dikombinasikan dengan flashing kode algoritma Perturb and Observe (P&O) konvensional ke ESP32 C3 oleh Adhit untuk melacak titik daya maksimum (MPP).',
-      images: [], // Isi jika ada foto sirkuit / pengodean IDE (cth: ['/kegiatan/solder.jpeg'])
+      description: 'Perangkaian fisik sirkuit elektronika instrumentasi daya dan modul switching oleh Rio dan Aras, dikombinasikan dengan flashing kode algoritma Perturb and Observe (P&O) konvensional ke mikrokontroler ESP32 C3 oleh Adhit untuk melacak titik daya maksimum (MPP).',
+      images: [
+        '/schematic.jpeg',
+        '/kontrol.jpeg'
+      ], // Mengunci aset skema jalur sirkuit dan fisik kontroler yang sudah siap
       note: 'LOG_METRIC: Enkapsulasi data telemetri dioptimalkan untuk meminimalkan osilasi di sekitar MPP.'
     },
     {
@@ -63,8 +66,8 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       title: 'Monitoring & Evaluasi (Monev) Akademik',
       date: 'Fase 5: Validasi Awal',
       status: 'In Progress',
-      description: 'Presentasi dan pengujian fungsionalitas purwarupa stasiun kendali di hadapan dosen penguji. Menampilkan kestabilan transmisi data parameter elektrik menuju antarmuka monitoring berbasis web.',
-      images: [], // Masukkan foto besok pagi saat Anda sedang maju Monev! (cth: ['/kegiatan/monev.jpeg'])
+      description: 'Presentasi dan pengujian fungsionalitas purwarupa stasiun kendali di hadapan dosen penguji oleh seluruh anggota tim. Menampilkan kestabilan transmisi data parameter elektrik menuju antarmuka monitoring dashboard berbasis web secara real-time.',
+      images: [], // Siap diisi foto tim saat pelaksanaan Monev pagi ini
       note: 'LOG_METRIC: Validasi fungsionalitas current state sistem sebelum pengambilan data konstan.'
     },
     {
@@ -74,7 +77,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
       date: 'Fase 6: Evaluasi Akhir',
       status: 'Pending',
       description: 'Melakukan running sistem secara konstan di bawah fluktuasi iradiasi riil. Menganalisis fenomena kehilangan daya akibat osilasi, mendeteksi terjadinya penyimpangan (drift), dan menyusun kalkulasi efisiensi ekstraksi energi.',
-      images: [], // Isi dengan foto grafik akhir atau foto alat saat ditaruh di bawah terik matahari
+      images: [], 
       note: 'LOG_METRIC: Penyusunan laporan ilmiah akhir berdasarkan data log telemetri Python.'
     }
   ];
@@ -158,7 +161,7 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
                       <p className="text-xs text-zinc-400 leading-relaxed text-justify mt-1">{current.description}</p>
                     </div>
 
-                    {/* GALERI FOTO OTOMATIS: Muncul jika array gambar terisi */}
+                    {/* GALERI FOTO OTOMATIS */}
                     <div>
                       <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wide block mb-2">Dokumentasi Arsip Visual:</span>
                       {current.images.length > 0 ? (
@@ -178,7 +181,6 @@ export default function RoadmapSegments({ playClickSound, playPopSound }: Roadma
                           ))}
                         </div>
                       ) : (
-                        // Tampilan aman jika foto belum dimasukkan ke array
                         <div className="border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center">
                           <p className="text-xs text-zinc-600 font-mono">// Dokumen foto fisik belum di-upload ke public/</p>
                         </div>
