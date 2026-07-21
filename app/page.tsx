@@ -27,6 +27,7 @@ export default function MPPTDashboard() {
   const [relayStatus, setRelayStatus] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   
+  // State data awal diset 0 agar tidak ada angka dummy saat loading
   const [data, setData] = useState<TelemetryData>({
     voltage: 0,
     current: 0,
@@ -36,14 +37,14 @@ export default function MPPTDashboard() {
   
   const [history, setHistory] = useState<TelemetryData[]>([]);
 
-  // Fetch data telemetri dari tabel mppt_telemetry
+  // Fetch data telemetri terbaru dari Supabase
   const fetchTelemetry = async () => {
     try {
       setLoading(true);
       const { data: telemetryData, error } = await supabase
         .from('mppt_telemetry')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }) // Mengambil dari data TERBARU
         .limit(20);
 
       if (error) {
@@ -52,8 +53,11 @@ export default function MPPTDashboard() {
       }
 
       if (telemetryData && telemetryData.length > 0) {
+        // Data index 0 adalah data PALING TERAKHIR masuk
         const latest = telemetryData[0];
         setData(latest);
+
+        // History dibalik khusus untuk urutan grafik dari Kiri (lama) ke Kanan (baru)
         setHistory(telemetryData.slice().reverse());
       }
     } catch (error) {
@@ -66,7 +70,7 @@ export default function MPPTDashboard() {
   useEffect(() => {
     fetchTelemetry();
 
-    // Listener WebSocket Supabase Realtime pada tabel mppt_telemetry
+    // Listener WebSocket Supabase Realtime
     const channel = supabase
       .channel('realtime_telemetry')
       .on(
@@ -74,7 +78,9 @@ export default function MPPTDashboard() {
         { event: 'INSERT', schema: 'public', table: 'mppt_telemetry' },
         (payload) => {
           const newRecord = payload.new as TelemetryData;
+          // Update data utama dengan record terbaru dari WebSocket
           setData(newRecord);
+          // Tambahkan ke history grafik
           setHistory((prev) => [...prev.slice(1), newRecord]);
         }
       )
@@ -170,10 +176,13 @@ export default function MPPTDashboard() {
               </div>
             </section>
 
-            {/* KOMPONEN INSTRUMEN/METRIK UTAMA */}
-            <DashboardSegments setSelectedInfo={(info) => setActiveModal(info)} />
+            {/* KOMPONEN INSTRUMEN/METRIK UTAMA (Passing data realtime) */}
+            <DashboardSegments 
+              data={data} 
+              setSelectedInfo={(info) => setActiveModal(info)} 
+            />
 
-            {/* GRAFIK BUFFER SEMENTARA */}
+            {/* GRAFIK BUFFER REALTIME */}
             <section className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
@@ -225,7 +234,7 @@ export default function MPPTDashboard() {
         © UNU Yogyakarta
       </footer>
 
-      {/* MODAL SIMPEL */}
+      {/* MODAL OVERLAY */}
       <AnimatePresence>
         {activeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -248,7 +257,7 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-amber-400 mb-1">Tegangan Panel (V)</h3>
                   <p className="text-xs text-zinc-300">
-                    Tegangan aktual saat ini: <strong className="text-white">{data.voltage.toFixed(2)} Volt</strong>.
+                    Tegangan aktual terkonfirmasi: <strong className="text-white">{data.voltage.toFixed(2)} Volt</strong>.
                   </p>
                 </div>
               )}
@@ -257,7 +266,7 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-blue-400 mb-1">Arus Pengisian (A)</h3>
                   <p className="text-xs text-zinc-300">
-                    Arus terukur saat ini: <strong className="text-white">{data.current.toFixed(2)} Ampere</strong>.
+                    Arus terukur terkonfirmasi: <strong className="text-white">{data.current.toFixed(2)} Ampere</strong>.
                   </p>
                 </div>
               )}
@@ -266,7 +275,7 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-emerald-400 mb-1">Daya Output (W)</h3>
                   <p className="text-xs text-zinc-300">
-                    Total daya pengisian: <strong className="text-white">{(data.power ?? (data.voltage * data.current)).toFixed(2)} Watt</strong>.
+                    Total daya pengisian terkonfirmasi: <strong className="text-white">{(data.power ?? (data.voltage * data.current)).toFixed(2)} Watt</strong>.
                   </p>
                 </div>
               )}
