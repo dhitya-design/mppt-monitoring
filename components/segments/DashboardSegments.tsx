@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
 
 interface DashboardSegmentProps {
-  playClickSound: () => void;
-  playPopSound: () => void;
-  setSelectedInfo: (info: string | null) => void;
+  playClickSound?: () => void;
+  playPopSound?: () => void;
+  setSelectedInfo?: (info: string | null) => void;
 }
 
-export default function DashboardSegment({ playClickSound, playPopSound, setSelectedInfo }: DashboardSegmentProps) {
+export default function DashboardSegments({ 
+  playClickSound = () => {}, 
+  playPopSound = () => {}, 
+  setSelectedInfo = () => {} 
+}: DashboardSegmentProps) {
   const [activeMetric, setActiveMetric] = useState<'voltage' | 'current' | 'battery' | 'power'>('power');
 
   const chartData = [
@@ -44,7 +47,7 @@ export default function DashboardSegment({ playClickSound, playPopSound, setSele
         className={`cursor-pointer border p-6 bg-zinc-900/40 backdrop-blur-md transition-all duration-300 relative overflow-hidden ${
           activeMetric === 'power' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'border-zinc-800 hover:border-zinc-700'
         }`}
-        style={{ borderRadius: '0px' }} // Konsisten tegas tanpa rounded corners
+        style={{ borderRadius: '0px' }}
       >
         <div className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4">
           <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase">// TELEMETRI ENKAPSULASI OUTPUT</span>
