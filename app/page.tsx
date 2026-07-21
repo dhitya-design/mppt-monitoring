@@ -25,7 +25,10 @@ interface TelemetryData {
 export default function MPPTDashboard() {
   const [currentSegment, setCurrentSegment] = useState<'dashboard' | 'about' | 'roadmap' | 'team'>('dashboard');
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [relayStatus, setRelayStatus] = useState<boolean>(true);
+  
+  // State Saklar & Loading
+  const [relayStatus, setRelayStatus] = useState<boolean>(false);
+  const [updatingRelay, setUpdatingRelay] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
   
   // State data utama & riwayat telemetri
@@ -38,7 +41,7 @@ export default function MPPTDashboard() {
   
   const [history, setHistory] = useState<TelemetryData[]>([]);
 
-  // Fetch data telemetri terbaru dari Supabase
+  // 1. Fetch data telemetri terbaru dari Supabase
   const fetchTelemetry = async () => {
     try {
       setLoading(true);
@@ -49,7 +52,7 @@ export default function MPPTDashboard() {
         .limit(20);
 
       if (error) {
-        console.error("Supabase error:", error.message);
+        console.error("Supabase Telemetry error:", error.message);
         return;
       }
 
@@ -62,33 +65,93 @@ export default function MPPTDashboard() {
         setHistory(telemetryData.slice().reverse());
       }
     } catch (error) {
-      console.error("Gagal mengambil data:", error);
+      console.error("Gagal mengambil data telemetri:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchTelemetry();
+  // 2. Fetch status saklar mppt_control dari Supabase
+  const fetchRelayStatus = async () => {
+    try {
+      const { data: controlData, error } = await supabase
+        .from('mppt_control')
+        .select('relay_state')
+        .eq('id', 1)
+        .single();
 
-    // Listener WebSocket Supabase Realtime
-    const channel = supabase
+      if (error) {
+        console.error("Supabase Control error:", error.message);
+      } else if (controlData) {
+        setRelayStatus(controlData.relay_state);
+      }
+    } catch (error) {
+      console.error("Gagal mengambil status saklar:", error);
+    }
+  };
+
+  // 3. Fungsi Toggle Saklar MPPT Control
+  const handleToggleRelay = async () => {
+    setUpdatingRelay(true);
+    const nextState = !relayStatus;
+
+    try {
+      const { error } = await supabase
+        .from('mppt_control')
+        .update({ 
+          relay_state: nextState, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', 1);
+
+      if (error) {
+        alert("Gagal mengubah status saklar: " + error.message);
+      } else {
+        setRelayStatus(nextState);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdatingRelay(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch saat mount
+    fetchTelemetry();
+    fetchRelayStatus();
+
+    // Channel Realtime Telemetri
+    const telemetryChannel = supabase
       .channel('realtime_telemetry')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'mppt_telemetry' },
         (payload) => {
           const newRecord = payload.new as TelemetryData;
-          // Update data utama
           setData(newRecord);
-          // Tambahkan record baru ke array history
           setHistory((prev) => [...prev.slice(1), newRecord]);
         }
       )
       .subscribe();
 
+    // Channel Realtime Saklar Control
+    const controlChannel = supabase
+      .channel('realtime_control')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mppt_control', filter: 'id=eq.1' },
+        (payload) => {
+          if (payload.new && typeof payload.new.relay_state === 'boolean') {
+            setRelayStatus(payload.new.relay_state);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(telemetryChannel);
+      supabase.removeChannel(controlChannel);
     };
   }, []);
 
@@ -120,7 +183,7 @@ export default function MPPTDashboard() {
             {/* GRID KONTROL & LOG RINGKAS */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               
-              {/* SAKLAR RELAY */}
+              {/* SAKLAR RELAY SUPABASE */}
               <div className="bg-[#111111] border border-zinc-800 p-4 flex flex-col justify-between" style={{ borderRadius: '0px' }}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-semibold text-zinc-400">Saklar Output</span>
@@ -128,18 +191,19 @@ export default function MPPTDashboard() {
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-xs font-mono text-zinc-400">
-                    Status: {relayStatus ? <span className="text-emerald-400 font-bold">Aktif</span> : <span className="text-red-500 font-bold">Nonaktif</span>}
+                    Status: {relayStatus ? <span className="text-emerald-400 font-bold">Aktif (ON)</span> : <span className="text-red-500 font-bold">Nonaktif (OFF)</span>}
                   </span>
                   <button 
-                    onClick={() => setRelayStatus(!relayStatus)}
-                    className={`px-3 py-1 font-mono text-xs font-medium transition-all ${
+                    onClick={handleToggleRelay}
+                    disabled={updatingRelay}
+                    className={`px-3 py-1 font-mono text-xs font-medium transition-all border ${
                       relayStatus 
-                        ? 'bg-[#600006] hover:bg-[#80000a] text-white' 
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
-                    }`}
+                        ? 'bg-[#600006] hover:bg-[#80000a] text-white border-red-900' 
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                    } ${updatingRelay ? 'opacity-50 cursor-wait' : ''}`}
                     style={{ borderRadius: '0px' }}
                   >
-                    {relayStatus ? "Matikan" : "Nyalakan"}
+                    {updatingRelay ? "Memproses..." : relayStatus ? "Matikan" : "Nyalakan"}
                   </button>
                 </div>
               </div>
