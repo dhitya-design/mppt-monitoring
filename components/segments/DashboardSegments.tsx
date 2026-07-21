@@ -3,29 +3,48 @@
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
+interface TelemetryData {
+  voltage: number;
+  current: number;
+  power?: number;
+  created_at: string;
+}
+
 interface DashboardSegmentProps {
+  data: TelemetryData;
+  history?: TelemetryData[];
   playClickSound?: () => void;
   playPopSound?: () => void;
   setSelectedInfo?: (info: string | null) => void;
 }
 
 export default function DashboardSegments({ 
+  data,
+  history = [],
   playClickSound = () => {}, 
   playPopSound = () => {}, 
   setSelectedInfo = () => {} 
 }: DashboardSegmentProps) {
   const [activeMetric, setActiveMetric] = useState<'voltage' | 'current' | 'battery' | 'power'>('power');
 
-  const chartData = [
-    { time: '08:00', voltage: 14.2, current: 2.5, battery: 12.6, power: 35.5 },
-    { time: '10:00', voltage: 16.8, current: 3.4, battery: 12.9, power: 58.2 },
-    { time: '12:00', voltage: 18.5, current: 4.2, battery: 13.2, power: 77.7 },
-    { time: '14:00', voltage: 17.1, current: 3.8, battery: 13.1, power: 65.0 },
-    { time: '16:00', voltage: 15.0, current: 2.8, battery: 13.0, power: 42.3 },
-  ];
+  // Metrik aktual dari Supabase
+  const currentVoltage = data?.voltage ?? 0;
+  const currentCurrent = data?.current ?? 0;
+  const currentPower = data?.power ?? Number((currentVoltage * currentCurrent).toFixed(2));
+  const currentBattery = 13.2; // Nilai estimasi baterai jika belum ada sensor khusus baterai
 
-  const metrics = { vInput: 18.5, iInput: 4.2, vBattery: 13.2, mode: 'P&O', efficiency: '97.8%' };
-  const power = Number((metrics.vInput * metrics.iInput).toFixed(2));
+  // Format data riwayat dari Supabase untuk Recharts Chart
+  const chartData = history.length > 0 
+    ? history.map((item) => ({
+        time: new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        voltage: Number(item.voltage.toFixed(2)),
+        current: Number(item.current.toFixed(2)),
+        battery: 13.2,
+        power: Number((item.power ?? (item.voltage * item.current)).toFixed(2))
+      }))
+    : [
+        { time: '08:00', voltage: 0, current: 0, battery: 12.6, power: 0 },
+      ];
 
   const getMetricDetails = () => {
     switch (activeMetric) {
@@ -51,12 +70,12 @@ export default function DashboardSegments({
       >
         <div className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4">
           <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase">// TELEMETRI ENKAPSULASI OUTPUT</span>
-          <span className="text-xs font-black px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" style={{ borderRadius: '0px' }}>{metrics.mode}</span>
+          <span className="text-xs font-black px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" style={{ borderRadius: '0px' }}>P&O MPPT</span>
         </div>
         <div className="flex justify-between items-end">
           <div>
             <p className="text-xs text-zinc-500 font-semibold uppercase">Total Daya Tergenerasi</p>
-            <p className="text-4xl font-black mt-1 text-white tracking-tight">{power} <span className="text-lg font-normal text-zinc-500">Watt</span></p>
+            <p className="text-4xl font-black mt-1 text-white tracking-tight">{currentPower.toFixed(2)} <span className="text-lg font-normal text-zinc-500">Watt</span></p>
           </div>
           <button 
             onClick={(e) => { e.stopPropagation(); playPopSound(); setSelectedInfo('power'); }}
@@ -71,9 +90,9 @@ export default function DashboardSegments({
       {/* SENSOR GRIDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { id: 'voltage', label: 'Tegangan Panel', val: metrics.vInput, unit: 'Volt', text: 'text-amber-400' },
-          { id: 'current', label: 'Arus Pengisian', val: metrics.iInput, unit: 'Ampere', text: 'text-blue-400' },
-          { id: 'battery', label: 'Tegangan Baterai', val: metrics.vBattery, unit: 'Volt', text: 'text-lime-400' },
+          { id: 'voltage', label: 'Tegangan Panel', val: currentVoltage.toFixed(2), unit: 'Volt', text: 'text-amber-400' },
+          { id: 'current', label: 'Arus Pengisian', val: currentCurrent.toFixed(2), unit: 'Ampere', text: 'text-blue-400' },
+          { id: 'battery', label: 'Tegangan Baterai', val: currentBattery.toFixed(2), unit: 'Volt', text: 'text-lime-400' },
         ].map((item) => (
           <div
             key={item.id}
