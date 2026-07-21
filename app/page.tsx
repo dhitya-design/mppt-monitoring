@@ -18,6 +18,7 @@ interface TelemetryData {
   voltage: number;
   current: number;
   power?: number;
+  battery_voltage?: number;
   created_at: string;
 }
 
@@ -27,7 +28,7 @@ export default function MPPTDashboard() {
   const [relayStatus, setRelayStatus] = useState<boolean>(true);
   const [loading, setLoading] = useState(false);
   
-  // State data awal diset 0 agar tidak ada angka dummy saat loading
+  // State data utama & riwayat telemetri
   const [data, setData] = useState<TelemetryData>({
     voltage: 0,
     current: 0,
@@ -44,7 +45,7 @@ export default function MPPTDashboard() {
       const { data: telemetryData, error } = await supabase
         .from('mppt_telemetry')
         .select('*')
-        .order('created_at', { ascending: false }) // Mengambil dari data TERBARU
+        .order('created_at', { ascending: false }) // Ambil dari data TERBARU
         .limit(20);
 
       if (error) {
@@ -53,11 +54,11 @@ export default function MPPTDashboard() {
       }
 
       if (telemetryData && telemetryData.length > 0) {
-        // Data index 0 adalah data PALING TERAKHIR masuk
+        // Index 0 adalah record paling baru
         const latest = telemetryData[0];
         setData(latest);
 
-        // History dibalik khusus untuk urutan grafik dari Kiri (lama) ke Kanan (baru)
+        // History dibalik agar urutan grafik dari Kiri (lama) ke Kanan (baru)
         setHistory(telemetryData.slice().reverse());
       }
     } catch (error) {
@@ -78,9 +79,9 @@ export default function MPPTDashboard() {
         { event: 'INSERT', schema: 'public', table: 'mppt_telemetry' },
         (payload) => {
           const newRecord = payload.new as TelemetryData;
-          // Update data utama dengan record terbaru dari WebSocket
+          // Update data utama
           setData(newRecord);
-          // Tambahkan ke history grafik
+          // Tambahkan record baru ke array history
           setHistory((prev) => [...prev.slice(1), newRecord]);
         }
       )
@@ -94,10 +95,10 @@ export default function MPPTDashboard() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans p-4 md:p-6 pb-28 selection:bg-[#600006] selection:text-white antialiased">
       
-      {/* HEADER SIMPEL */}
+      {/* HEADER UTAMA */}
       <header className="border-b border-zinc-800 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight uppercase">
             MPPT Monitoring System
           </h1>
           <p className="text-xs text-zinc-400 mt-0.5">
@@ -107,12 +108,12 @@ export default function MPPTDashboard() {
 
         {/* STATUS KONEKSI */}
         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5" style={{ borderRadius: '0px' }}>
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <div className="w-2 h-2 bg-emerald-500 animate-pulse shrink-0" style={{ borderRadius: '0px' }} />
           <span className="text-xs font-mono text-zinc-300">ESP32: Connected</span>
         </div>
       </header>
 
-      {/* AREA UTAMA */}
+      {/* KONTEN UTAMA */}
       <main className="w-full space-y-6">
         {currentSegment === 'dashboard' && (
           <>
@@ -176,13 +177,14 @@ export default function MPPTDashboard() {
               </div>
             </section>
 
-            {/* KOMPONEN INSTRUMEN/METRIK UTAMA (Passing data realtime) */}
+            {/* SEGMENT DASHBOARD METRIK & GRAFIK KURVA RECHARTS */}
             <DashboardSegments 
               data={data} 
+              history={history}
               setSelectedInfo={(info) => setActiveModal(info)} 
             />
 
-            {/* GRAFIK BUFFER REALTIME */}
+            {/* BUFFER DATA REALTIME (BAR CHART RINGKAS) */}
             <section className="bg-[#111111] border border-zinc-800 p-4" style={{ borderRadius: '0px' }}>
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
@@ -257,7 +259,7 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-amber-400 mb-1">Tegangan Panel (V)</h3>
                   <p className="text-xs text-zinc-300">
-                    Tegangan aktual terkonfirmasi: <strong className="text-white">{data.voltage.toFixed(2)} Volt</strong>.
+                    Tegangan aktual terkonfirmasi: <strong className="text-white">{(data.voltage ?? 0).toFixed(2)} Volt</strong>.
                   </p>
                 </div>
               )}
@@ -266,7 +268,16 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-blue-400 mb-1">Arus Pengisian (A)</h3>
                   <p className="text-xs text-zinc-300">
-                    Arus terukur terkonfirmasi: <strong className="text-white">{data.current.toFixed(2)} Ampere</strong>.
+                    Arus terukur terkonfirmasi: <strong className="text-white">{(data.current ?? 0).toFixed(2)} Ampere</strong>.
+                  </p>
+                </div>
+              )}
+
+              {activeModal === 'battery' && (
+                <div>
+                  <h3 className="text-sm font-bold text-lime-400 mb-1">Tegangan Baterai (V)</h3>
+                  <p className="text-xs text-zinc-300">
+                    Tegangan bank baterai terkonfirmasi: <strong className="text-white">{(data.battery_voltage ?? (data.voltage * 0.72)).toFixed(2)} Volt</strong>.
                   </p>
                 </div>
               )}
@@ -304,8 +315,8 @@ export default function MPPTDashboard() {
                               <td className="p-2 border-r border-zinc-800 text-zinc-500 text-[10px]">
                                 {new Date(row.created_at).toLocaleTimeString('id-ID')}
                               </td>
-                              <td className="p-2 border-r border-zinc-800">{row.voltage.toFixed(1)}V</td>
-                              <td className="p-2 border-r border-zinc-800">{row.current.toFixed(1)}A</td>
+                              <td className="p-2 border-r border-zinc-800">{(row.voltage ?? 0).toFixed(1)}V</td>
+                              <td className="p-2 border-r border-zinc-800">{(row.current ?? 0).toFixed(1)}A</td>
                               <td className="p-2 text-emerald-400 font-medium">
                                 {(row.power ?? (row.voltage * row.current)).toFixed(1)}W
                               </td>

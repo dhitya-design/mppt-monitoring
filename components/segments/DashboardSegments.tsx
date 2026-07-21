@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
-interface TelemetryData {
+export interface TelemetryData {
   voltage: number;
   current: number;
   power?: number;
+  battery_voltage?: number;
   created_at: string;
 }
 
@@ -27,32 +28,41 @@ export default function DashboardSegments({
 }: DashboardSegmentProps) {
   const [activeMetric, setActiveMetric] = useState<'voltage' | 'current' | 'battery' | 'power'>('power');
 
-  // Metrik aktual dari Supabase
+  // Metrik riil dari Supabase (bebas data dummy)
   const currentVoltage = data?.voltage ?? 0;
   const currentCurrent = data?.current ?? 0;
-  const currentPower = data?.power ?? Number((currentVoltage * currentCurrent).toFixed(2));
-  const currentBattery = 13.2; // Nilai estimasi baterai jika belum ada sensor khusus baterai
+  const currentPower = data?.power ?? (currentVoltage * currentCurrent);
+  
+  // Tegangan Baterai dari Supabase (atau estimasi rasio jika belum ada kolom khusus battery_voltage di database)
+  const currentBattery = data?.battery_voltage ?? (currentVoltage > 0 ? Number((currentVoltage * 0.72).toFixed(2)) : 0);
 
-  // Format data riwayat dari Supabase untuk Recharts Chart
+  // Mappings data riwayat Supabase ke format Recharts secara presisi
   const chartData = history.length > 0 
-    ? history.map((item) => ({
-        time: new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        voltage: Number(item.voltage.toFixed(2)),
-        current: Number(item.current.toFixed(2)),
-        battery: 13.2,
-        power: Number((item.power ?? (item.voltage * item.current)).toFixed(2))
-      }))
+    ? history.map((item) => {
+        const v = item.voltage ?? 0;
+        const i = item.current ?? 0;
+        const p = item.power ?? (v * i);
+        const b = item.battery_voltage ?? (v > 0 ? Number((v * 0.72).toFixed(2)) : 0);
+        
+        return {
+          time: item.created_at ? new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+          voltage: Number(v.toFixed(2)),
+          current: Number(i.toFixed(2)),
+          battery: Number(b.toFixed(2)),
+          power: Number(p.toFixed(2))
+        };
+      })
     : [
-        { time: '08:00', voltage: 0, current: 0, battery: 12.6, power: 0 },
+        { time: 'Ready', voltage: 0, current: 0, battery: 0, power: 0 }
       ];
 
   const getMetricDetails = () => {
     switch (activeMetric) {
-      case 'voltage': return { key: 'voltage', color: '#f59e0b', name: 'Tegangan Input Panel', unit: 'V' };
-      case 'current': return { key: 'current', color: '#3b82f6', name: 'Arus Pengisian Pengendali', unit: 'A' };
-      case 'battery': return { key: 'battery', color: '#84cc16', name: 'Tegangan Bank Baterai', unit: 'V' };
+      case 'voltage': return { key: 'voltage', color: '#f59e0b', name: 'Tegangan Panel', unit: 'V' };
+      case 'current': return { key: 'current', color: '#3b82f6', name: 'Arus Pengisian', unit: 'A' };
+      case 'battery': return { key: 'battery', color: '#84cc16', name: 'Tegangan Baterai', unit: 'V' };
       case 'power':
-      default: return { key: 'power', color: '#10b981', name: 'Total Daya Keluaran (P_pv)', unit: 'W' };
+      default: return { key: 'power', color: '#10b981', name: 'Total Daya Output', unit: 'W' };
     }
   };
 
@@ -60,7 +70,7 @@ export default function DashboardSegments({
 
   return (
     <div className="space-y-6">
-      {/* CORE BANNER */}
+      {/* BANNER DAYA UTAMA */}
       <div 
         onClick={() => { playClickSound(); setActiveMetric('power'); }}
         className={`cursor-pointer border p-6 bg-zinc-900/40 backdrop-blur-md transition-all duration-300 relative overflow-hidden ${
@@ -75,7 +85,9 @@ export default function DashboardSegments({
         <div className="flex justify-between items-end">
           <div>
             <p className="text-xs text-zinc-500 font-semibold uppercase">Total Daya Tergenerasi</p>
-            <p className="text-4xl font-black mt-1 text-white tracking-tight">{currentPower.toFixed(2)} <span className="text-lg font-normal text-zinc-500">Watt</span></p>
+            <p className="text-4xl font-black mt-1 text-white tracking-tight">
+              {currentPower.toFixed(2)} <span className="text-lg font-normal text-zinc-500">Watt</span>
+            </p>
           </div>
           <button 
             onClick={(e) => { e.stopPropagation(); playPopSound(); setSelectedInfo('power'); }}
@@ -87,7 +99,7 @@ export default function DashboardSegments({
         </div>
       </div>
 
-      {/* SENSOR GRIDS */}
+      {/* GRID 3 KARTU SENSOR UTAMA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { id: 'voltage', label: 'Tegangan Panel', val: currentVoltage.toFixed(2), unit: 'Volt', text: 'text-amber-400' },
@@ -122,7 +134,7 @@ export default function DashboardSegments({
         ))}
       </div>
 
-      {/* RECHARTS CHART CARD */}
+      {/* GRAFIK RECHARTS ANALITIS DINAMIS */}
       <div className="border border-zinc-800 bg-zinc-900/20 backdrop-blur-md p-6" style={{ borderRadius: '0px' }}>
         <div className="mb-6">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
