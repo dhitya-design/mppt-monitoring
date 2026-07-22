@@ -14,11 +14,11 @@ import DashboardSegments from '@/components/segments/DashboardSegments';
 import RoadmapSegments from '@/components/segments/RoadmapSegments';
 import TeamSegments from '@/components/segments/TeamSegments';
 
-interface TelemetryData {
+export interface TelemetryData {
   voltage: number;
   current: number;
   power?: number;
-  battery_voltage?: number;
+  battery?: number; // SESUAI TABEL SUPABASE: "battery"
   created_at: string;
 }
 
@@ -36,6 +36,7 @@ export default function MPPTDashboard() {
     voltage: 0,
     current: 0,
     power: 0,
+    battery: 0,
     created_at: new Date().toISOString()
   });
   
@@ -48,7 +49,7 @@ export default function MPPTDashboard() {
       const { data: telemetryData, error } = await supabase
         .from('mppt_telemetry')
         .select('*')
-        .order('created_at', { ascending: false }) // Ambil dari data TERBARU
+        .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) {
@@ -57,11 +58,8 @@ export default function MPPTDashboard() {
       }
 
       if (telemetryData && telemetryData.length > 0) {
-        // Index 0 adalah record paling baru
         const latest = telemetryData[0];
         setData(latest);
-
-        // History dibalik agar urutan grafik dari Kiri (lama) ke Kanan (baru)
         setHistory(telemetryData.slice().reverse());
       }
     } catch (error) {
@@ -78,7 +76,7 @@ export default function MPPTDashboard() {
         .from('mppt_control')
         .select('relay_state')
         .eq('id', 1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Supabase Control error:", error.message);
@@ -90,40 +88,54 @@ export default function MPPTDashboard() {
     }
   };
 
-  // 3. Fungsi Toggle Saklar MPPT Control
+  // 3. Fungsi Toggle Saklar MPPT Control dengan Upsert Tangguh
   const handleToggleRelay = async () => {
+    if (updatingRelay) return;
     setUpdatingRelay(true);
-    const nextState = !relayStatus;
 
     try {
+      // Ambil status paling aktual dari DB untuk mencegah stale state
+      const { data: currentData } = await supabase
+        .from('mppt_control')
+        .select('relay_state')
+        .eq('id', 1)
+        .maybeSingle();
+
+      const latestState = currentData ? currentData.relay_state : relayStatus;
+      const nextState = !latestState;
+
       const { error } = await supabase
         .from('mppt_control')
-        .update({ 
-          relay_state: nextState, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', 1);
+        .upsert(
+          { 
+            id: 1, 
+            relay_state: nextState, 
+            updated_at: new Date().toISOString() 
+          },
+          { onConflict: 'id' }
+        );
 
       if (error) {
-        alert("Gagal mengubah status saklar: " + error.message);
+        console.error("Detail Error Supabase:", error);
+        alert(`Gagal mengubah status saklar: ${error.message}`);
       } else {
         setRelayStatus(nextState);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error toggle relay:", err);
     } finally {
       setUpdatingRelay(false);
     }
   };
 
   useEffect(() => {
-    // Initial fetch saat mount
+    // Initial fetch saat component pertama dimuat
     fetchTelemetry();
     fetchRelayStatus();
 
-    // Channel Realtime Telemetri
+    // Channel Realtime Telemetri dengan Nama Unik
     const telemetryChannel = supabase
-      .channel('realtime_telemetry')
+      .channel('realtime_telemetry_dashboard')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'mppt_telemetry' },
@@ -135,20 +147,21 @@ export default function MPPTDashboard() {
       )
       .subscribe();
 
-    // Channel Realtime Saklar Control
+    // Channel Realtime Saklar Control dengan Nama Unik
     const controlChannel = supabase
-      .channel('realtime_control')
+      .channel('realtime_control_dashboard')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'mppt_control', filter: 'id=eq.1' },
+        { event: '*', schema: 'public', table: 'mppt_control', filter: 'id=eq.1' },
         (payload) => {
-          if (payload.new && typeof payload.new.relay_state === 'boolean') {
-            setRelayStatus(payload.new.relay_state);
+          if (payload.new && typeof (payload.new as any).relay_state === 'boolean') {
+            setRelayStatus((payload.new as any).relay_state);
           }
         }
       )
       .subscribe();
 
+    // Cleanup koneksi WebSocket agar tidak terjadi akumulasi koneksi macet/deadlock
     return () => {
       supabase.removeChannel(telemetryChannel);
       supabase.removeChannel(controlChannel);
@@ -341,7 +354,7 @@ export default function MPPTDashboard() {
                 <div>
                   <h3 className="text-sm font-bold text-lime-400 mb-1">Tegangan Baterai (V)</h3>
                   <p className="text-xs text-zinc-300">
-                    Tegangan bank baterai terkonfirmasi: <strong className="text-white">{(data.battery_voltage ?? (data.voltage * 0.72)).toFixed(2)} Volt</strong>.
+                    Tegangan bank baterai terkonfirmasi: <strong className="text-white">{(data.battery ?? (data.voltage * 0.72)).toFixed(2)} Volt</strong>.
                   </p>
                 </div>
               )}
@@ -369,6 +382,7 @@ export default function MPPTDashboard() {
                           <th className="p-2 border-r border-zinc-800">Waktu</th>
                           <th className="p-2 border-r border-zinc-800 text-amber-400">Volt</th>
                           <th className="p-2 border-r border-zinc-800 text-blue-400">Arus</th>
+                          <th className="p-2 border-r border-zinc-800 text-lime-400">Bat</th>
                           <th className="p-2 text-emerald-400">Daya</th>
                         </tr>
                       </thead>
@@ -381,6 +395,9 @@ export default function MPPTDashboard() {
                               </td>
                               <td className="p-2 border-r border-zinc-800">{(row.voltage ?? 0).toFixed(1)}V</td>
                               <td className="p-2 border-r border-zinc-800">{(row.current ?? 0).toFixed(1)}A</td>
+                              <td className="p-2 border-r border-zinc-800 text-lime-400">
+                                {(row.battery ?? 0).toFixed(1)}V
+                              </td>
                               <td className="p-2 text-emerald-400 font-medium">
                                 {(row.power ?? (row.voltage * row.current)).toFixed(1)}W
                               </td>
@@ -388,7 +405,7 @@ export default function MPPTDashboard() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="p-4 text-center text-zinc-500">Belum ada data.</td>
+                            <td colSpan={5} className="p-4 text-center text-zinc-500">Belum ada data.</td>
                           </tr>
                         )}
                       </tbody>

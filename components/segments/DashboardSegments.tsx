@@ -7,7 +7,7 @@ export interface TelemetryData {
   voltage: number;
   current: number;
   power?: number;
-  battery_voltage?: number;
+  battery?: number; // Disesuaikan dengan nama kolom tabel Supabase: "battery"
   created_at: string;
 }
 
@@ -28,13 +28,13 @@ export default function DashboardSegments({
 }: DashboardSegmentProps) {
   const [activeMetric, setActiveMetric] = useState<'voltage' | 'current' | 'battery' | 'power'>('power');
 
-  // Metrik riil dari Supabase (bebas data dummy)
+  // Metrik riil dari Supabase
   const currentVoltage = data?.voltage ?? 0;
   const currentCurrent = data?.current ?? 0;
   const currentPower = data?.power ?? (currentVoltage * currentCurrent);
   
-  // Tegangan Baterai dari Supabase (atau estimasi rasio jika belum ada kolom khusus battery_voltage di database)
-  const currentBattery = data?.battery_voltage ?? (currentVoltage > 0 ? Number((currentVoltage * 0.72).toFixed(2)) : 0);
+  // Tegangan Baterai dari Supabase (menggunakan field 'battery')
+  const currentBattery = data?.battery ?? (currentVoltage > 0 ? Number((currentVoltage * 0.72).toFixed(2)) : 0);
 
   // Mappings data riwayat Supabase ke format Recharts secara presisi
   const chartData = history.length > 0 
@@ -42,7 +42,7 @@ export default function DashboardSegments({
         const v = item.voltage ?? 0;
         const i = item.current ?? 0;
         const p = item.power ?? (v * i);
-        const b = item.battery_voltage ?? (v > 0 ? Number((v * 0.72).toFixed(2)) : 0);
+        const b = item.battery ?? (v > 0 ? Number((v * 0.72).toFixed(2)) : 0);
         
         return {
           time: item.created_at ? new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--:--',
